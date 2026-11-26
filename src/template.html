@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPrint – Audio to Record STL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=Archivo+Narrow:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: präzise Werkstatt, ruhig, technisch ehrlich
+   IDEA: ein Plattenlabel / Schneidemaschine – die Platte selbst ist das Werkstück
+   PICTURE: die live berechnete Platte mit echter Spirale + Mikroskop-Ansicht der Rille
+   COLOUR and TYPE: Vinylschwarz, weißes Papier, Labelrot als einziger Akzent; Archivo
+   LAYOUT: Bedienspalte links, große Platte rechts, darunter Messwerte und Druckhinweise */
+:root{color-scheme:light dark;--bg:light-dark(#fbfbf9,#111112);--ink:light-dark(#141414,#ecebe7);--mute:light-dark(#5d5d5a,#a3a29d);--line:light-dark(#dcdbd6,#2c2c2e);--panel:light-dark(#ffffff,#1a1a1c);--vinyl:#0d0d0e;--red:#e2321c;--redink:light-dark(#b8240f,#ff6a52);--ok:light-dark(#1d6b3a,#6fd39a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,'Noto Sans','PingFang SC','Hiragino Sans','Microsoft YaHei',sans-serif;overflow-x:clip}
+h1,h2,h3{font-weight:800;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(32px,5vw,50px);letter-spacing:-.02em}
+h2{font-size:26px;margin-bottom:14px}
+h3{font-size:17px;margin:0 0 6px}
+p{margin:0 0 12px;max-width:68ch}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header.band{padding-bottom:12px}
+.lead{color:var(--mute);font-size:17px;margin-top:10px}
+.tool{display:grid;grid-template-columns:minmax(0,390px) minmax(0,1fr);gap:28px;align-items:start}
+@media(max-width:900px){.tool{grid-template-columns:minmax(0,1fr)}.stage{order:-1}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.stack-gap>*+*{margin-top:14px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;cursor:pointer;transition:border-color .2s}
+.drop.hot,.drop:hover{border-color:var(--red)}
+.drop strong{display:block;font-size:17px}
+.drop small{color:var(--mute)}
+label{display:block;font-size:14px;font-weight:500;color:var(--mute);margin-bottom:4px}
+select,input[type=number],input[type=text]{width:100%;font:16px Archivo,sans-serif;padding:9px 10px;min-height:44px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--red);min-height:32px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font:600 15px 'Archivo Narrow',Archivo,sans-serif;min-height:44px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--vinyl);color:#fff}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--ink);font-weight:400;margin:8px 0;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:var(--red);margin-top:2px;flex:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;border-radius:10px;border:0;font:700 16px Archivo,sans-serif;cursor:pointer;background:var(--vinyl);color:#fff}
+:root[data-theme=dark] .btn,.btn{outline-offset:3px}
+.btn.red{background:var(--red)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+details.adv summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.stage{position:relative}
+.discbox{position:relative;aspect-ratio:1;max-width:620px;margin:0 auto;border-radius:50%}
+.discbox canvas{position:absolute;inset:0;width:100%;height:100%}
+.empty[hidden]{display:none}.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#cfcfcb;font-size:15px;padding:30%}
+.micro{margin-top:18px}
+.micro .fig{position:relative;height:190px;border-radius:12px;overflow:hidden;background:#151517}
+.micro .fig canvas{position:absolute;inset:0;width:100%;height:100%}
+.cap{font-size:13px;color:var(--mute);margin-top:6px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:18px}
+.stats div{background:var(--panel);padding:10px 12px;box-shadow:0 0 0 1px var(--line)}
+.stats b{display:block;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats span{font-size:13px;color:var(--mute)}
+.msg{font-size:15px;padding:10px 12px;border-radius:10px;background:light-dark(#fff1ee,#2a1613);color:var(--redink);display:none}
+.msg.show{display:block}
+.msg.good{background:light-dark(#ecf7f0,#12251a);color:var(--ok)}
+.bar{height:10px;border-radius:6px;background:var(--line);overflow:hidden;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--red);transition:width .15s}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px}
+.tips ul{margin:0;padding-left:20px}.tips li{margin-bottom:6px}
+footer{color:var(--mute);font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.langsel{display:flex;align-items:center;gap:8px;margin:0}.langsel select{width:auto}
+[dir=rtl] .stats b{direction:ltr;text-align:right}#pos{direction:ltr}
+.pill{display:inline-block;font-size:13px;padding:2px 9px;border-radius:99px;background:var(--line);color:var(--ink);white-space:nowrap}
+@media(max-width:600px){.row3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="band"><div class="wrap">
+  <div class="top"><h1>LPrint</h1>
+    <label class="langsel"><span data-i18n="lang">Language</span><select id="lang"></select></label></div>
+  <p class="lead" data-i18n="lead"></p>
+</div></header>
+
+<main class="band" style="padding-top:12px"><div class="wrap tool">
+  <section class="stack-gap">
+    <div class="card stack-gap">
+      <div class="drop" id="drop" tabindex="0" role="button" data-i18n-aria="drop_aria">
+        <strong id="fname" data-i18n="drop_title"></strong>
+        <small id="finfo" data-i18n="drop_hint"></small>
+        <input type="file" id="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a" hidden>
+      </div>
+      <button class="btn ghost" id="testsig" type="button" data-i18n="test_btn"></button>
+    </div>
+
+    <div class="card stack-gap">
+      <div><label data-i18n="lbl_disc"></label>
+        <div class="seg" id="segDisc"><button data-v="5">5″</button><button data-v="7" aria-pressed="true">7″</button><button data-v="10">10″</button><button data-v="12">12″</button></div></div>
+      <div><label data-i18n="lbl_speed"></label>
+        <div class="seg" id="segRpm"><button data-v="33.333333">33⅓</button><button data-v="45" aria-pressed="true">45</button><button data-v="78">78</button></div></div>
+      <div><label data-i18n="lbl_channels"></label>
+        <div class="seg" id="segMode"><button data-v="mono" aria-pressed="true" data-i18n="mono"></button><button data-v="stereo" data-i18n="stereo"></button></div></div>
+      <div><label for="printer" data-i18n="lbl_printer"></label>
+        <select id="printer">
+          <option value="p1s02" selected data-i18n="pr_p1s02"></option>
+          <option value="p1s04" data-i18n="pr_p1s04"></option>
+          <option value="r16" data-i18n="pr_r16"></option>
+          <option value="r12" data-i18n="pr_r12"></option>
+          <option value="r8" data-i18n="pr_r8"></option>
+          <option value="r4" data-i18n="pr_r4"></option>
+        </select></div>
+      <label class="chk"><input type="checkbox" id="compress" checked> <span data-i18n="chk_comp"></span></label>
+      <label class="chk"><input type="checkbox" id="autofit" checked> <span data-i18n="chk_fit"></span></label>
+
+      <details class="adv">
+        <summary data-i18n="adv"></summary>
+        <div class="stack-gap">
+          <div class="row">
+            <div><label for="sr" data-i18n="lbl_sr"></label><select id="sr"><option>4000</option><option>6000</option><option>8000</option><option>11025</option><option selected>16000</option><option>22050</option></select></div>
+            <div><label for="px" data-i18n="lbl_px"></label><input type="number" id="px" step="1" min="5"></div>
+          </div>
+          <div class="row3">
+            <div><label for="gw" data-i18n="lbl_gw"></label><input type="number" id="gw" step="5" min="40"></div>
+            <div><label for="amp" data-i18n="lbl_amp"></label><input type="number" id="amp" step="5" min="5"></div>
+            <div><label for="land" data-i18n="lbl_land"></label><input type="number" id="land" step="5" min="10"></div>
+          </div>
+          <div class="row3">
+            <div><label for="slope" data-i18n="lbl_slope"></label><input type="number" id="slope" step="0.05" min="0.1" max="1.5"></div>
+            <div><label for="hp" data-i18n="lbl_hp"></label><input type="number" id="hp" step="5" min="0"></div>
+            <div><label for="lp" data-i18n="lbl_lp"></label><input type="number" id="lp" step="100" min="0" value="0"></div>
+          </div>
+          <div class="row3">
+            <div><label for="diam" data-i18n="lbl_diam"></label><input type="number" id="diam" step="0.1"></div>
+            <div><label for="rstart" data-i18n="lbl_rstart"></label><input type="number" id="rstart" step="0.1"></div>
+            <div><label for="rmin" data-i18n="lbl_rmin"></label><input type="number" id="rmin" step="0.1"></div>
+          </div>
+          <div class="row">
+            <div><label for="thick" data-i18n="lbl_thick"></label><input type="number" id="thick" step="0.1" value="2.6"></div>
+            <div><label for="hole" data-i18n="lbl_hole"></label><input type="number" id="hole" step="0.01" value="7.24"></div>
+          </div>
+          <label class="chk"><input type="checkbox" id="riaa" checked> <span data-i18n="chk_riaa"></span></label>
+          <label class="chk"><input type="checkbox" id="trim" checked> <span data-i18n="chk_trim"></span></label>
+        </div>
+      </details>
+    </div>
+
+    <div class="card stack-gap">
+      <button class="btn" id="calc" type="button" disabled data-i18n="btn_calc"></button>
+      <div class="row">
+        <button class="btn ghost" id="play" type="button" disabled data-i18n="btn_play"></button>
+        <button class="btn ghost" id="stop" type="button" disabled data-i18n="btn_stop"></button>
+      </div>
+      <button class="btn red" id="stl" type="button" disabled data-i18n="btn_stl"></button>
+      <div class="bar" id="bar"><i></i></div>
+      <div class="msg" id="msg" role="status"></div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="discbox"><canvas id="disc"></canvas><div class="empty" id="empty" data-i18n="empty"></div></div>
+    <div class="micro">
+      <h3 data-i18n="micro_title"></h3>
+      <div class="fig"><canvas id="detail"></canvas></div>
+      <input type="range" id="pos" min="0" max="1000" value="300" data-i18n-aria="pos_aria" disabled>
+      <div class="cap" id="detcap" data-i18n="detcap0"></div>
+    </div>
+    <div class="stats" id="stats" hidden></div>
+  </section>
+</div></main>
+
+<section class="band" style="background:var(--vinyl);color:#ecebe7"><div class="wrap">
+  <h2 data-i18n="tips_title"></h2>
+  <div class="tips">
+    <div><h3 data-i18n="tb_h"></h3><ul><li data-i18n="tb1"></li><li data-i18n="tb2"></li><li data-i18n="tb3"></li><li data-i18n="tb4"></li></ul></div>
+    <div><h3 data-i18n="tr_h"></h3><ul><li data-i18n="tr1"></li><li data-i18n="tr2"></li><li data-i18n="tr3"></li><li data-i18n="tr4"></li></ul></div>
+    <div><h3 data-i18n="tp_h"></h3><ul><li data-i18n="tp1"></li><li data-i18n="tp2"></li><li data-i18n="tp3"></li><li data-i18n="tp4"></li></ul></div>
+    <div><h3 data-i18n="tq_h"></h3><ul><li data-i18n="tq1"></li><li data-i18n="tq2"></li><li data-i18n="tq3"></li><li data-i18n="tq4"></li></ul></div>
+  </div>
+</div></section>
+<footer class="band"><div class="wrap" data-i18n="footer"></div></footer>
+
+<script>/*I18N*/</script>
+<script id="core" type="text/plain">/*CORE*/</script>
+<script>
+{
+const $ = id => document.getElementById(id);
+const DISCS = { '5': { diam: 127, rStart: 60.5, rMin: 44 }, '7': { diam: 175.3, rStart: 84.1, rMin: 53.2 }, '10': { diam: 250.8, rStart: 120.6, rMin: 59 }, '12': { diam: 301.6, rStart: 146.3, rMin: 60.3 } };
+const PRINTERS = {
+  r16: { gw: 140, amp: 55, land: 35, px: 17, sr: 16000, slope: 0.7, hp: 30, thick: 2.2 },
+  r12: { gw: 160, amp: 60, land: 40, px: 22, sr: 16000, slope: 0.7, hp: 30, thick: 2.2 },
+  r8: { gw: 200, amp: 70, land: 50, px: 32, sr: 11025, slope: 0.65, hp: 40, thick: 2.2 },
+  r4: { gw: 260, amp: 90, land: 70, px: 50, sr: 11025, slope: 0.6, hp: 50, thick: 2.2 },
+  p1s02: { gw: 500, amp: 120, land: 250, px: 180, sr: 4000, slope: 0.5, hp: 100, thick: 2.6 },
+  p1s04: { gw: 800, amp: 180, land: 400, px: 350, sr: 4000, slope: 0.45, hp: 120, thick: 3.0 }
+};
+const st = { buf: null, name: 'audio', disc: '7', rpm: 45, mode: 'mono', res: null, ctx: null, src: null, busy: false };
+
+// --- Worker ---
+const workerSrc = $('core').textContent + `
+let G=null;
+const CRC=new Int32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC[n]=c;}
+function crc(c,u8){c=~c;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return ~c;}
+onmessage=e=>{const d=e.data;
+ if(d.cmd==='prepare'){try{const res=prepare(d.chs,d.fs,d.P);G=res.G;const r1=G.r1.slice(),r4=G.r4.slice();
+  postMessage({type:'prepared',stats:res.stats,r1,r4,preview:res.preview},[r1.buffer,r4.buffer,...res.preview.map(p=>p.buffer)]);}
+  catch(err){postMessage({type:'error',msg:err.message})}}
+ if(d.cmd==='mesh'){try{const tris=countTris(G.N,G.M);const h=new ArrayBuffer(84),u=new Uint8Array(h);
+  const txt='LPrint binary STL - '+d.label;for(let i=0;i<Math.min(80,txt.length);i++)u[i]=txt.charCodeAt(i)&127;
+  new DataView(h).setUint32(80,tris,true);let c=crc(0,u);
+  const parts=[h];
+  genMesh(G,1<<19,b=>{c=crc(c,new Uint8Array(b));postMessage({type:'chunk',buf:b},[b]);},p=>postMessage({type:'progress',p}));
+  postMessage({type:'done',header:h,crc:c>>>0,tris},[h]);}catch(err){postMessage({type:'error',msg:err.message})}}
+};`;
+let worker = null;
+function getWorker() { if (!worker) worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' }))); return worker; }
+
+// --- UI helpers ---
+let LANG = 'en';
+try { const l = localStorage.getItem('lprint-lang'); if (l && I18N[l]) LANG = l; } catch (e) { }
+const t = (k, v) => String((I18N[LANG] && I18N[LANG][k]) ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (m, n) => v && n in v ? v[n] : m);
+const tEn = (k, v) => String(I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (m, n) => v && n in v ? v[n] : m);
+function say(k, v, good) { st.m = [k, v, good]; msg(k ? t(k, v) : '', good); }
+function errKey(err) { try { const o = JSON.parse(err.message); if (o && o.k) return [o.k, o]; } catch (e) { } return null; }
+function applyLang() {
+  const d = I18N[LANG] || I18N.en;
+  document.documentElement.lang = LANG; document.documentElement.dir = d._rtl ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+  if (st.buf) { $('fname').textContent = st.labelKey ? t(st.labelKey) : st.label; $('finfo').textContent = st.finfo ? t(st.finfo[0], st.finfo[1]) : ''; }
+  if (st.m) say(...st.m);
+  if (st.last) showStats(st.last.s, st.last.P);
+  if (st.res) drawDetail();
+  drawDisc();
+}
+function msg(t, good) { const m = $('msg'); m.textContent = t || ''; m.className = 'msg' + (t ? ' show' : '') + (good ? ' good' : ''); }
+function bar(p) { const b = $('bar'); b.style.display = p == null ? 'none' : 'block'; b.firstElementChild.style.width = ((p || 0) * 100).toFixed(1) + '%'; }
+function seg(id, key, cb) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    for (const x of $(id).children) x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+    st[key] = key === 'rpm' ? +b.dataset.v : b.dataset.v; if (cb) cb(); invalidate();
+  });
+}
+function applyDisc() { const d = DISCS[st.disc]; $('diam').value = d.diam; $('rstart').value = d.rStart; $('rmin').value = d.rMin; }
+function applyPrinter() { const p = PRINTERS[$('printer').value]; for (const k of ['gw', 'amp', 'land', 'px', 'slope', 'hp']) $(k).value = p[k]; $('sr').value = p.sr; $('thick').value = p.thick; }
+seg('segDisc', 'disc', applyDisc); seg('segRpm', 'rpm'); seg('segMode', 'mode');
+$('printer').addEventListener('change', () => { applyPrinter(); invalidate(); });
+document.querySelectorAll('input,select').forEach(el => { if (el.id !== 'pos' && el.id !== 'file' && el.id !== 'lang') el.addEventListener('change', invalidate); });
+applyDisc(); applyPrinter();
+
+function invalidate() {
+  if (!st.res) return;
+  st.res = null; $('stl').disabled = true; $('play').disabled = true; $('pos').disabled = true;
+  say('changed');
+}
+
+// --- Datei laden ---
+const drop = $('drop');
+drop.addEventListener('click', () => $('file').click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('hot'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('hot'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('hot'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+$('file').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+function actx() { if (!st.ctx) st.ctx = new (window.AudioContext || window.webkitAudioContext)(); return st.ctx; }
+async function loadFile(f) {
+  say('decoding');
+  try {
+    const ab = await f.arrayBuffer();
+    const buf = await actx().decodeAudioData(ab);
+    setSource(buf, f.name.replace(/\.[^.]+$/, ''));
+  } catch (err) { say('decode_fail', { e: err.message || err }); }
+}
+function fmtT(s) { return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+function setSource(buf, name) {
+  st.buf = buf; st.label = name; st.name = (name === 'test' ? 'test-signal' : name).replace(/[^\w\-äöüÄÖÜß ]+/g, '_').trim() || 'audio';
+  st.labelKey = null; $('fname').textContent = name;
+  st.finfo = ['finfo', { t: fmtT(buf.duration), c: buf.numberOfChannels, sr: buf.sampleRate }]; $('finfo').textContent = t(...st.finfo);
+  $('calc').disabled = false; st.res = null; $('stl').disabled = true; $('play').disabled = true;
+  say('ready', null, true);
+}
+$('testsig').addEventListener('click', () => {
+  const fs = 44100, len = fs * 30, b = new AudioBuffer({ length: len, numberOfChannels: 2, sampleRate: fs });
+  const L = b.getChannelData(0), R = b.getChannelData(1);
+  let ph = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / fs; let l = 0, r = 0;
+    if (t < 9) { const v = 0.5 * Math.sin(2 * Math.PI * 1000 * t); l = t < 3 || (t >= 3 && t < 6) ? v : 0; r = t < 3 || t >= 6 ? v : 0; }
+    else if (t < 29) { const f = 50 * Math.pow(10000 / 50, (t - 9) / 20); ph += 2 * Math.PI * f / fs; l = r = 0.5 * Math.sin(ph); }
+    L[i] = l; R[i] = r;
+  }
+  setSource(b, 'test');
+  st.labelKey = 'test_name'; st.label = t('test_name'); $('fname').textContent = t('test_name');
+  st.finfo = ['test_info']; $('finfo').textContent = t('test_info');
+});
+
+// --- Parameter ---
+function params() {
+  const n = id => parseFloat($(id).value);
+  const rpm = st.rpm, srT = parseInt($('sr').value, 10), N = Math.round(srT * 60 / rpm);
+  return {
+    N, fs: N * rpm / 60, rpm, stereo: st.mode === 'stereo',
+    hpHz: n('hp') || 0, lpHz: n('lp') || 0, compress: $('compress').checked, riaa: $('riaa').checked, trim: $('trim').checked,
+    grooveW: n('gw') / 1000, land: n('land') / 1000, ampMax: n('amp') / 1000, autoFit: $('autofit').checked,
+    rStart: n('rstart'), rMin: n('rmin'), pitchIn: 1.5, pitchOut: 2.0, maxSlope: n('slope'), vertFrac: 0.5,
+    thick: n('thick'), diam: n('diam'), rHole: n('hole') / 2, px: n('px') / 1000
+  };
+}
+
+// --- Berechnen ---
+$('calc').addEventListener('click', async () => {
+  if (!st.buf || st.busy) return;
+  const P = params();
+  if (!(P.rStart < P.diam / 2) || !(P.rMin < P.rStart) || !(P.thick > 0.6)) { say('geom_err'); return; }
+  st.busy = true; $('calc').disabled = true; say('resample', { f: P.fs.toFixed(1) });
+  try {
+    const ch = P.stereo ? Math.min(2, st.buf.numberOfChannels) : 1;
+    const len = Math.ceil(st.buf.duration * P.fs);
+    const oc = new OfflineAudioContext(ch, len, P.fs);
+    const s = oc.createBufferSource(); s.buffer = st.buf; s.connect(oc.destination); s.start();
+    const out = await oc.startRendering();
+    let chs = []; for (let c = 0; c < ch; c++) chs.push(out.getChannelData(c).slice());
+    if (P.stereo && ch === 1) chs.push(chs[0].slice());
+    if (P.trim) {
+      let a = 0, b = len - 1; const thr = 0.002;
+      const loud = i => chs.some(c => Math.abs(c[i]) > thr);
+      while (a < len && !loud(a)) a++; while (b > a && !loud(b)) b--;
+      const pad = Math.round(0.05 * P.fs); a = Math.max(0, a - pad); b = Math.min(len - 1, b + pad);
+      if (b > a) chs = chs.map(c => c.slice(a, b + 1));
+    }
+    if (!P.lpHz) {
+      const vMid = 2 * Math.PI * ((P.rStart + P.rMin) / 2) * P.rpm / 60; // mm/s
+      P.lpHz = Math.round(Math.min(0.45 * P.fs, vMid / (2.5 * P.px)));
+    }
+    st.P = P;
+    say('computing');
+    const w = getWorker();
+    const res = await new Promise((ok, no) => {
+      w.onmessage = e => e.data.type === 'prepared' ? ok(e.data) : e.data.type === 'error' && no(new Error(e.data.msg));
+      w.postMessage({ cmd: 'prepare', chs, fs: P.fs, P }, chs.map(c => c.buffer));
+    });
+    st.res = res;
+    showStats(res.stats, P); drawDisc(); drawDetail();
+    $('stl').disabled = false; $('play').disabled = false; $('pos').disabled = false; $('empty').hidden = true;
+    const sx = res.stats;
+    if (sx.A < 0.3 * P.px) say('warn_small', { a: Math.round(sx.A * 1000) });
+    else say('done_ok', null, true);
+  } catch (err) { const ek = errKey(err); ek ? say(ek[0], ek[1]) : say('gen_err', { e: err.message || String(err) }); }
+  st.busy = false; $('calc').disabled = false;
+});
+
+function showStats(s, P) {
+  st.last = { s, P };
+  const um = v => Math.round(v * 1000) + ' µm';
+  const fLim = v => Math.min(P.fs / 2, v / (2.5 * P.px));
+  const kHz = f => (f / 1000).toFixed(1) + ' kHz';
+  const mb = s.bytes / 1e6;
+  const items = [
+    [fmtT(s.duration) + ' min', t('st_time')],
+    [um(s.pitch), t('st_pitch')],
+    ['±' + um(s.A), t('st_amp')],
+    [s.levelDb.toFixed(1) + ' dB', t('st_level', { x: t(s.limitedBy) })],
+    [s.rAudioStart.toFixed(1) + '→' + s.rAudioEnd.toFixed(1) + ' mm', t('st_radius')],
+    [kHz(fLim(s.vOut)) + ' / ' + kHz(fLim(s.vIn)), t('st_hf')],
+    [Math.round(P.lpHz) + ' Hz', t('st_lp')],
+    [(s.tris / 1e6).toFixed(1) + ' ' + t('mio'), t('st_tris')],
+    [(mb > 1000 ? (mb / 1000).toFixed(2) + ' GB' : Math.round(mb) + ' MB'), t('st_size')],
+    [P.diam.toFixed(0) + ' mm', t('st_diam')]
+  ];
+  const el = $('stats'); el.hidden = false; el.innerHTML = '';
+  for (const [v, l] of items) { const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; const sp = document.createElement('span'); sp.textContent = l; d.append(b, sp); el.append(d); }
+}
+
+// --- Zeichnen ---
+function fit(cv) { const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.max(1, r.width * d); cv.height = Math.max(1, r.height * d); return [cv.getContext('2d'), cv.width, cv.height, d]; }
+function drawDisc() {
+  const cv = $('disc'); const [g, W, H] = fit(cv); const P = st.P || params(); const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 2;
+  const k = R / ((P.diam || 175) / 2);
+  g.clearRect(0, 0, W, H);
+  const grad = g.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+  grad.addColorStop(0, '#202022'); grad.addColorStop(1, '#0b0b0c');
+  g.fillStyle = grad; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+  if (st.res) {
+    const { r1, r4, stats } = st.res; const N = stats.N, M = stats.M, step = Math.max(1, Math.floor(N / 240));
+    const revs = M / N, every = Math.max(1, Math.floor(revs / (R / 2.2)));
+    const toXY = (r, i) => { const t = 2 * Math.PI * (i % N) / N; return [cx + r * k * Math.cos(t), cy - r * k * Math.sin(t)]; };
+    g.lineWidth = Math.max(0.6, R / 600);
+    for (let rev = 0; rev < revs; rev += every) {
+      const i0 = rev * N, i1 = Math.min(M - 1, i0 + N);
+      for (let i = i0; i < i1; i += step) {
+        const j = Math.min(M - 1, i + step);
+        let mx = 0; const base = (r1[i] + r4[i]) / 2, drift = ((r1[j] + r4[j]) / 2 - base);
+        for (let q = i; q <= j; q += Math.max(1, step >> 3)) { const c = (r1[q] + r4[q]) / 2 - base - drift * (q - i) / (j - i || 1); mx = Math.max(mx, Math.abs(c)); }
+        const a = Math.min(1, mx / (stats.A || 0.05));
+        const music = i >= N && i < N + stats.Ma;
+        g.strokeStyle = music ? `rgba(${200 + 40 * a | 0},${200 - 120 * a | 0},${190 - 150 * a | 0},${0.18 + 0.6 * a})` : 'rgba(255,255,255,.28)';
+        g.beginPath(); g.moveTo(...toXY(base, i)); g.lineTo(...toXY((r1[j] + r4[j]) / 2, j)); g.stroke();
+      }
+    }
+    g.fillStyle = '#e2321c'; g.beginPath(); g.arc(cx, cy, stats.rLabel * k - 1, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.92)'; g.font = `700 ${Math.max(11, R * 0.045)}px Archivo, sans-serif`; g.textAlign = 'center';
+    g.fillText((st.labelKey ? t(st.labelKey) : (st.label || st.name)).slice(0, 24), cx, cy - stats.rLabel * k * 0.45);
+    g.font = `500 ${Math.max(10, R * 0.035)}px Archivo, sans-serif`;
+    g.fillText((P.rpm === 45 ? '45' : P.rpm === 78 ? '78' : '33⅓') + ' ' + t('rpm') + ' · ' + (stats.stereo ? 'Stereo' : 'Mono'), cx, cy + stats.rLabel * k * 0.55);
+  } else {
+    g.strokeStyle = 'rgba(255,255,255,.07)';
+    for (let r = (P.rMin || 50); r < (P.rStart || 84); r += 1.2) { g.beginPath(); g.arc(cx, cy, r * k, 0, 7); g.stroke(); }
+    g.fillStyle = '#e2321c'; g.beginPath(); g.arc(cx, cy, ((P.rMin || 50) - 4) * k, 0, 7); g.fill();
+  }
+  g.fillStyle = getComputedStyle(document.body).backgroundColor; g.beginPath(); g.arc(cx, cy, Math.max(2, (P.rHole || 3.62) * k), 0, 7); g.fill();
+}
+function drawDetail() {
+  const cv = $('detail'); const [g, W, H] = fit(cv);
+  g.direction = 'ltr'; g.fillStyle = '#9a9994'; g.fillRect(0, 0, W, H);
+  if (!st.res) { return; }
+  const { r1, r4, stats } = st.res; const N = stats.N;
+  const tp = +$('pos').value / 1000, i0 = Math.floor(N + 1.2 * N + tp * Math.max(0, stats.Ma - 2.4 * N));
+  const pitch = stats.pitch, rRef = (r1[i0] + r4[i0]) / 2;
+  const spanR = pitch * 3.3, s = H / spanR; // px pro mm
+  const ds = 2 * Math.PI * rRef / N, spanS = W / s, nS = Math.ceil(spanS / ds);
+  for (let kk = -1; kk <= 1; kk++) {
+    const base = i0 + kk * N - (nS >> 1); if (base < 0 || base + nS >= stats.M) continue;
+    g.beginPath();
+    for (let q = 0; q <= nS; q++) { const x = q * ds * s, y = H / 2 - (r1[base + q] - rRef) * s; q ? g.lineTo(x, y) : g.moveTo(x, y); }
+    for (let q = nS; q >= 0; q--) { const x = q * ds * s, y = H / 2 - (r4[base + q] - rRef) * s; g.lineTo(x, y); }
+    g.closePath(); g.fillStyle = '#121214'; g.fill();
+  }
+  g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(12, H - 18, 0.1 * s, 3);
+  g.font = `600 ${12 * (devicePixelRatio || 1)}px Archivo, sans-serif`; g.fillText('100 µm', 12, H - 24);
+  const sec = (i0 - N) / stats.fs;
+  $('detcap').textContent = t('detcap', { t: fmtT(Math.max(0, sec)), r: rRef.toFixed(2) });
+}
+$('pos').addEventListener('input', drawDetail);
+const ro = new ResizeObserver(() => { drawDisc(); drawDetail(); }); ro.observe($('disc')); ro.observe($('detail'));
+
+// --- Vorschau ---
+$('play').addEventListener('click', () => {
+  if (!st.res) return; stopPlay();
+  const p = st.res.preview, c = actx(); c.resume();
+  const b = new AudioBuffer({ length: p[0].length, numberOfChannels: p.length, sampleRate: st.P.fs });
+  p.forEach((d, i) => b.copyToChannel(d, i));
+  const s = c.createBufferSource(); s.buffer = b; s.connect(c.destination);
+  const off = (+$('pos').value / 1000) * b.duration * 0.9; s.start(0, off); st.src = s; $('stop').disabled = false;
+});
+function stopPlay() { if (st.src) { try { st.src.stop(); } catch (e) { } st.src = null; } $('stop').disabled = true; }
+$('stop').addEventListener('click', stopPlay);
+
+// --- ZIP (unkomprimiert) ---
+const CRC = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CRC[n] = c; }
+const crc32 = u8 => { let c = -1; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; };
+function zipParts(files) { // files: [{name, parts, size, crc}]
+  const enc = new TextEncoder(), out = [], cds = []; let off = 0; const now = new Date();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1), date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const f of files) {
+    const nm = enc.encode(f.name), lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, f.crc, true); lh.setUint32(18, f.size, true); lh.setUint32(22, f.size, true);
+    lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
+    out.push(lh.buffer, nm, ...f.parts);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true); cd.setUint16(10, 0, true);
+    cd.setUint16(12, time, true); cd.setUint16(14, date, true); cd.setUint32(16, f.crc, true); cd.setUint32(20, f.size, true); cd.setUint32(24, f.size, true);
+    cd.setUint16(28, nm.length, true); cd.setUint32(42, off, true);
+    cds.push(cd.buffer, nm); off += 30 + nm.length + f.size;
+  }
+  const cdSize = cds.reduce((a, b) => a + b.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return [...out, ...cds, e.buffer];
+}
+
+const ls = $('lang');
+for (const k of Object.keys(I18N)) { const o = document.createElement('option'); o.value = k; o.textContent = I18N[k]._name; ls.append(o); }
+ls.value = LANG;
+ls.addEventListener('change', () => { LANG = ls.value; try { localStorage.setItem('lprint-lang', LANG); } catch (e) { } applyLang(); });
+applyLang();
+
+let dl = null; try { window.claude && window.claude.use && window.claude.use('downloads').then(d => { dl = d; }).catch(() => { }); } catch (e) { }
+
+$('stl').addEventListener('click', async () => {
+  if (!st.res || st.busy) return;
+  if (st.res.stats.bytes > 4.2e9) { say('too_big'); return; }
+  st.busy = true; $('stl').disabled = true; $('calc').disabled = true; bar(0); say('mesh');
+  const P = st.P, s = st.res.stats;
+  const base = `${st.name}_${P.rpm === 45 ? '45' : P.rpm === 78 ? '78' : '33'}rpm_${s.stereo ? 'stereo' : 'mono'}`;
+  try {
+    const w = getWorker(), chunks = [];
+    const fin = await new Promise((ok, no) => {
+      w.onmessage = e => { const d = e.data;
+        if (d.type === 'chunk') chunks.push(d.buf);
+        else if (d.type === 'progress') bar(d.p * 0.97);
+        else if (d.type === 'done') ok(d);
+        else if (d.type === 'error') no(new Error(d.msg)); };
+      w.postMessage({ cmd: 'mesh', label: base });
+    });
+    const stlSize = 84 + fin.tris * 50;
+    const info = new TextEncoder().encode([
+      'LPrint – parameters', 'File: ' + base + '.stl', 'Playing time: ' + fmtT(s.duration) + ' min', 'RPM: ' + P.rpm.toFixed(2),
+      'Channels: ' + (s.stereo ? 'Stereo 45/45 (inner wall = L, outer wall = R)' : 'Mono (lateral)'), 'Sample rate: ' + s.fs.toFixed(2) + ' Hz, ' + s.N + ' samples/revolution',
+      'Disc: Ø ' + P.diam + ' mm, thickness ' + P.thick + ' mm, center hole ' + (P.rHole * 2).toFixed(2) + ' mm',
+      'Groove: ' + Math.round(P.grooveW * 1000) + ' µm wide (90° V), land ' + Math.round(P.land * 1000) + ' µm, pitch ' + Math.round(s.pitch * 1000) + ' µm',
+      'Max excursion: ±' + Math.round(s.A * 1000) + ' µm, level ' + s.levelDb.toFixed(1) + ' dB (limited by ' + tEn(s.limitedBy) + ')',
+      'Music from r=' + s.rAudioStart.toFixed(2) + ' to r=' + s.rAudioEnd.toFixed(2) + ' mm',
+      'Filters: HP ' + P.hpHz + ' Hz, LP ' + Math.round(P.lpHz) + ' Hz, RIAA ' + (P.riaa ? 'on' : 'off') + ', compressor ' + (P.compress ? 'on' : 'off'),
+      'Print groove side up, smallest layer height.'].join('\r\n'));
+    const parts = zipParts([{ name: base + '.stl', parts: [fin.header, ...chunks], size: stlSize, crc: fin.crc }, { name: 'parameter.txt', parts: [info], size: info.length, crc: crc32(info) }]);
+    bar(1);
+    const zip = new Blob(parts, { type: 'application/zip' });
+    if (dl) {
+      try { await dl.save({ filename: base + '.zip', data: zip }); say('saved', { f: base + '.zip', m: Math.round(zip.size / 1e6) }, true); }
+      catch (err) { err && err.code === 'declined' ? say('declined') : err && err.code === 'host_unavailable' ? say('host_unav') : say('save_fail', { e: err && (err.message || err.code) }); }
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = base + '.zip'; document.body.append(a); a.click(); a.remove();
+      say('dl', { f: base + '.zip', m: Math.round(zip.size / 1e6) }, true);
+    }
+  } catch (err) { say('gen_err', { e: err.message || err }); }
+  bar(null); st.busy = false; $('stl').disabled = !st.res; $('calc').disabled = !st.buf;
+});
+}
+</script>
+</body>
+</html>
